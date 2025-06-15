@@ -4,6 +4,6 @@ import functions_framework.http
 def sync_projects(request):
     """Our first cloud function!"""
     return {
-        ‘status‘: ‘success‘
+        'status': 'success'
         'message': 'Hello from your Todoist-Notion syncapp!'
     }
