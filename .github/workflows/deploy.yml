@@ -1,15 +1,37 @@
 yaml
+<<<<<<< HEAD
+name: Deploy
+=======
 name: Deploy-Cloud-Functions
 
+>>>>>>> e35ff4e1c426fd661a21c782c427120c314b013f
 on:
   push:
-    branches: [ main ]
-
+    branches: [main]
+  workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
     steps:
+<<<<<<< HEAD
+      - uses: actions/checkout@v3
+      - uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v1
+      - run: |
+          gcloud functions deploy sync-projects \
+            --gen2 \
+            --runtime=python311 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=sync_projects \
+            --trigger-http \
+            --allow-unauthenticated \
+            --set-env-vars GCP_PROJECT=${{ secrets.GCP_PROJECT }} \
+            --timeout=60
+      - run: echo "Deployed to https://us-central1-${{ secrets.GCP_PROJECT }}.cloudfunctions.net/sync-projects"
+=======
     - uses: actions/checkout@v3
     
     - id: 'auth'
@@ -31,3 +53,5 @@ jobs:
           --trigger-http \
           --allow-unauthenticated \
           --set-env-vars GCP_PROJECT=${{ secrets.GCP_PROJECT }}
+
+>>>>>>> e35ff4e1c426fd661a21c782c427120c314b013f
