@@ -1,0 +1,33 @@
+yaml
+name: Deploy to Google Cloud Functions
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+    
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v1'
+    
+    - name: 'Deploy function'
+      run: |
+        gcloud functions deploy sync-projects \
+          --gen2 \
+          --runtime=python311 \
+          --region=us-central1 \
+          --source=. \
+          --entry-point=sync_projects \
+          --trigger-http \
+          --allow-unauthenticated \
+          --set-env-vars GCP_PROJECT=${{ secrets.GCP_PROJECT }}
