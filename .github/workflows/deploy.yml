@@ -1,5 +1,5 @@
 yaml
-name: Deploy-to-Google-Cloud-Functions
+name: Deploy-Cloud-Functions
 
 on:
   push:
