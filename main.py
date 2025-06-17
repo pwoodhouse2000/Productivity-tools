@@ -57,8 +57,15 @@ def get_notion_projects():
     else:
         return []
 
-def create_notion_project(project_name, category_name=None):
-    """Create a new project in Notion - simplified version"""
+def create_notion_project(project_name, category_name=None, source=None, last_synced=None, description=None):
+    """
+    Create a new project in Notion with additional fields: Source, Last Synced, and Description.
+    - project_name: Name of the project (string)
+    - category_name: Optional category (string)
+    - source: Optional source of the project (string)
+    - last_synced: Optional last synced date/time (string, ISO format recommended)
+    - description: Optional description (string)
+    """
     api_key = get_secret("notion-api-key")
     database_id = get_secret("notion-database-id")
     
@@ -68,23 +75,22 @@ def create_notion_project(project_name, category_name=None):
         "Content-Type": "application/json"
     }
     
+    # Build the Notion properties dictionary
     properties = {
         "Name": {
             "title": [
-                {
-                    "text": {
-                        "content": project_name
-                    }
-                }
+                {"text": {"content": project_name}}
             ]
         }
     }
     if category_name:
-        properties["Category"] = {
-            "select": {
-                "name": category_name
-            }
-        }
+        properties["Category"] = {"select": {"name": category_name}}
+    if source:
+        properties["Source"] = {"rich_text": [{"text": {"content": source}}]}
+    if last_synced:
+        properties["Last Synced"] = {"date": {"start": last_synced}}
+    if description:
+        properties["Description"] = {"rich_text": [{"text": {"content": description}}]}
 
     data = {
         "parent": {"database_id": database_id},
@@ -136,10 +142,18 @@ def sync_todoist_to_notion():
             results["skipped"] += 1
         else:
             try:
-                if category_name:
-                    create_notion_project(project_name, category_name=category_name)
-                else:
-                    create_notion_project(project_name)
+                # Set the new fields for Notion
+                source = "Todoist"  # You can change this as needed
+                from datetime import datetime
+                last_synced = datetime.utcnow().isoformat()  # Current UTC time in ISO format
+                description = project.get("description", "")  # Use Todoist description if available
+                create_notion_project(
+                    project_name,
+                    category_name=category_name,
+                    source=source,
+                    last_synced=last_synced,
+                    description=description
+                )
                 results["created"] += 1
             except Exception as e:
                 results["errors"].append(f"Failed '{project_name}' (Category: {category_name}): {str(e)}")
