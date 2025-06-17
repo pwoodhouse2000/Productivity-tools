@@ -27,9 +27,13 @@ def get_todoist_projects():
     )
     
     if response.status_code == 200:
-        return response.json()
+        projects = response.json()
+        project_map = {project["id"]: project["name"] for project in projects}
+        return projects, project_map
     else:
-        raise Exception(f"Todoist API error: {response.status_code}")
+        # Log the error or handle it more gracefully
+        print(f"Todoist API error: {response.status_code} - {response.text}")
+        return [], {}
 
 def get_notion_projects():
     """Get existing projects from Notion database"""
@@ -53,7 +57,7 @@ def get_notion_projects():
     else:
         return []
 
-def create_notion_project(project_name):
+def create_notion_project(project_name, category_name=None):
     """Create a new project in Notion - simplified version"""
     api_key = get_secret("notion-api-key")
     database_id = get_secret("notion-database-id")
@@ -64,19 +68,27 @@ def create_notion_project(project_name):
         "Content-Type": "application/json"
     }
     
-    data = {
-        "parent": {"database_id": database_id},
-        "properties": {
-            "Name": {
-                "title": [
-                    {
-                        "text": {
-                            "content": project_name
-                        }
+    properties = {
+        "Name": {
+            "title": [
+                {
+                    "text": {
+                        "content": project_name
                     }
-                ]
+                }
+            ]
+        }
+    }
+    if category_name:
+        properties["Category"] = {
+            "select": {
+                "name": category_name
             }
         }
+
+    data = {
+        "parent": {"database_id": database_id},
+        "properties": properties
     }
     
     response = requests.post(
@@ -92,7 +104,7 @@ def create_notion_project(project_name):
 
 def sync_todoist_to_notion():
     """Main sync logic"""
-    todoist_projects = get_todoist_projects()
+    todoist_projects, todoist_project_map = get_todoist_projects() # Adjusted to unpack two values
     notion_projects = get_notion_projects()
     
     existing_names = set()
@@ -114,15 +126,23 @@ def sync_todoist_to_notion():
     
     for project in todoist_projects:
         project_name = project["name"]
-        
+        parent_id = project.get("parent_id") # Use .get() for safety
+        category_name = None
+
+        if parent_id:
+            category_name = todoist_project_map.get(str(parent_id)) # Ensure parent_id is string if keys are strings
+
         if project_name in existing_names:
             results["skipped"] += 1
         else:
             try:
-                create_notion_project(project_name)
+                if category_name:
+                    create_notion_project(project_name, category_name=category_name)
+                else:
+                    create_notion_project(project_name)
                 results["created"] += 1
             except Exception as e:
-                results["errors"].append(f"Failed '{project_name}': {str(e)}")
+                results["errors"].append(f"Failed '{project_name}' (Category: {category_name}): {str(e)}")
     
     return results
 
