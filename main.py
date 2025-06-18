@@ -512,12 +512,14 @@ def sync_all():
         todoist_projects = get_todoist_projects()
         notion_projects = get_notion_projects()
 
-        for np in notion_projects:
-            if "Todoist URL" in np["properties"] and np["properties"]["Todoist URL"].get("url"):
-                url = np["properties"]["Todo_URL"]["url"]
-                todoist_id = url.split("/")[-1]
-                project_map[todoist_id] = np["id"]
-                project_map_reverse[np["id"]] = todoist_id
+# REPLACE WITH THIS CORRECTED BLOCK
+for np in notion_projects:
+    if "Todoist URL" in np["properties"] and np["properties"]["Todoist URL"].get("url"):
+        # Corrected "Todoist URL"
+        url = np["properties"]["Todoist URL"]["url"] 
+        todoist_id = str(url.split("/")[-1]) # Added str() for safety
+        project_map[todoist_id] = np["id"]
+        project_map_reverse[np["id"]] = todoist_id
         print("✅ Created project ID maps.")
 
         # Sync tasks
