@@ -1,3 +1,6 @@
+#
+# COPY THIS ENTIRE BLOCK OF CODE INTO YOUR EMPTY main.py
+#
 import functions_framework
 import json
 import os
@@ -36,7 +39,7 @@ def get_todoist_projects():
         "<https://api.todoist.com/rest/v2/projects>",
         headers=get_todoist_headers()
     )
-
+    
     if response.status_code == 200:
         return response.json()
     else:
@@ -48,7 +51,7 @@ def get_todoist_tasks():
         "<https://api.todoist.com/rest/v2/tasks>",
         headers=get_todoist_headers()
     )
-
+    
     if response.status_code == 200:
         return response.json()
     else:
@@ -60,7 +63,7 @@ def get_todoist_labels():
         "<https://api.todoist.com/rest/v2/labels>",
         headers=get_todoist_headers()
     )
-
+    
     if response.status_code == 200:
         return response.json()
     else:
@@ -73,7 +76,7 @@ def create_todoist_label(name):
         headers=get_todoist_headers(),
         json={"name": name}
     )
-
+    
     if response.status_code == 200:
         return response.json()
     else:
@@ -84,7 +87,7 @@ def get_or_create_label(label_name, existing_labels):
     for label in existing_labels:
         if label["name"] == label_name:
             return label["id"]
-
+    
     # Create new label
     new_label = create_todoist_label(label_name)
     return new_label["id"]
@@ -93,13 +96,13 @@ def get_notion_projects():
     """Get existing projects from Notion database"""
     database_id = get_secret("notion-database-id")
     headers = get_notion_headers()
-
+    
     response = requests.post(
         f"<https://api.notion.com/v1/databases/{database_id}/query>",
         headers=headers,
         json={}
     )
-
+    
     if response.status_code == 200:
         return response.json()["results"]
     else:
@@ -107,15 +110,15 @@ def get_notion_projects():
 
 def get_notion_tasks():
     """Get tasks from The List of Things database"""
-    database_id = get_secret("notion-tasks-db-id")  # New secret needed
+    database_id = get_secret("notion-tasks-db-id")
     headers = get_notion_headers()
-
+    
     response = requests.post(
         f"<https://api.notion.com/v1/databases/{database_id}/query>",
         headers=headers,
         json={}
     )
-
+    
     if response.status_code == 200:
         return response.json()["results"]
     else:
@@ -125,18 +128,17 @@ def get_notion_categories():
     """Get categories from Notion to map names to IDs"""
     categories_db_id = get_secret("notion-categories-db-id")
     headers = get_notion_headers()
-
+    
     try:
         response = requests.post(
             f"<https://api.notion.com/v1/databases/{categories_db_id}/query>",
             headers=headers,
             json={}
         )
-
+        
         if response.status_code == 200:
             categories = {}
             for page in response.json()["results"]:
-                # Try different common property names for the title
                 title = None
                 for prop_name in ["Name", "Title", "Category"]:
                     if prop_name in page["properties"]:
@@ -144,10 +146,10 @@ def get_notion_categories():
                         if prop.get("title") and prop["title"]:
                             title = prop["title"][0]["text"]["content"]
                             break
-
+                
                 if title:
                     categories[title] = page["id"]
-
+                    
             return categories
         else:
             return {}
@@ -160,7 +162,7 @@ def create_or_update_notion_project(project_data, existing_projects):
     database_id = get_secret("notion-database-id")
     headers = get_notion_headers()
     category_map = get_notion_categories()
-
+    
     # Check if project exists
     page_id = None
     for page in existing_projects:
@@ -171,132 +173,116 @@ def create_or_update_notion_project(project_data, existing_projects):
                     break
         except:
             pass
-
+    
     properties = {
-        "Name": {
-            "title": [{"text": {"content": project_data["name"]}}]
-        },
-        "Source": {
-            "select": {"name": "Todoist"}
-        },
-        "Last Synced": {
-            "date": {"start": datetime.now().isoformat()}
-        }
+        "Name": {"title": [{"text": {"content": project_data["name"]}}]},
+        "Source": {"select": {"name": "Todoist"}},
+        "Last Synced": {"date": {"start": datetime.now().isoformat()}}
     }
-
+    
     # Add Todoist URL
     if "id" in project_data:
         properties["Todoist URL"] = {
-            "url": f"<https://todoist.com/app/project/{project_data['id']}>"
+            "url": f"https://todoist.com/app/project/{project_data['id']}"
         }
-
+    
     # Add status
     if project_data.get("is_archived"):
         properties["Status"] = {"select": {"name": "Done"}}
     else:
         properties["Status"] = {"select": {"name": "In Progress"}}
-
+    
     # Add category if it's a child project
     if "parent_id" in project_data and project_data["parent_id"]:
-        # Find parent name
         todoist_projects = get_todoist_projects()
         parent_name = None
         for p in todoist_projects:
             if p["id"] == project_data["parent_id"]:
                 parent_name = p["name"]
                 break
-
+        
         if parent_name and parent_name in category_map:
             properties["Category"] = {
                 "relation": [{"id": category_map[parent_name]}]
             }
-
+    
     if page_id:
-        # Update existing
         response = requests.patch(
             f"<https://api.notion.com/v1/pages/{page_id}>",
             headers=headers,
             json={"properties": properties}
         )
     else:
-        # Create new
         response = requests.post(
             "<https://api.notion.com/v1/pages>",
             headers=headers,
-            json={
-                "parent": {"database_id": database_id},
-                "properties": properties
-            }
+            json={"parent": {"database_id": database_id}, "properties": properties}
         )
-
+    
     if response.status_code not in [200, 201]:
         raise Exception(f"Notion API error: {response.status_code} - {response.text}")
-
+    
     return response.json()
 
 def create_or_update_todoist_project(notion_project):
     """Create or update a project in Todoist based on Notion data"""
     headers = get_todoist_headers()
-
+    
     # Extract project info from Notion
     project_name = notion_project["properties"]["Name"]["title"][0]["text"]["content"]
-
+    
     # Check if it should be archived
     is_archived = False
     if "Status" in notion_project["properties"]:
         status = notion_project["properties"]["Status"].get("select", {})
         if status and status.get("name") in ["Done", "Canceled"]:
             is_archived = True
-
+    
     # Get existing Todoist projects to check if it exists
     todoist_projects = get_todoist_projects()
     existing_project = None
-
+    
     for p in todoist_projects:
         if p["name"] == project_name:
             existing_project = p
             break
-
+    
     if existing_project:
-        # Update existing project
         if existing_project["is_archived"] != is_archived:
-            # Archive/unarchive project
             if is_archived:
                 response = requests.post(
-                    f"<https://api.todoist.com/rest/v2/projects/{existing_project['id']}/archive>",
+                    f"https://api.todoist.com/rest/v2/projects/{existing_project['id']}/archive",
                     headers=headers
                 )
             else:
                 response = requests.post(
-                    f"<https://api.todoist.com/rest/v2/projects/{existing_project['id']}/unarchive>",
+                    f"https://api.todoist.com/rest/v2/projects/{existing_project['id']}/unarchive",
                     headers=headers
                 )
         return existing_project["id"]
     else:
-        # Create new project
         project_data = {"name": project_name}
-
+        
         # Check for category/parent
         if "Category" in notion_project["properties"]:
             category_relation = notion_project["properties"]["Category"].get("relation", [])
             if category_relation:
-                # Get category name
                 category_id = category_relation[0]["id"]
                 # Would need to look up category name and find corresponding Todoist project
                 # For now, we'll skip parent assignment
-
+        
         response = requests.post(
-            "<https://api.todoist.com/rest/v2/projects>",
+            "https://api.todoist.com/rest/v2/projects",
             headers=headers,
             json=project_data
         )
-
+        
         if response.status_code == 200:
             new_project = response.json()
             if is_archived:
                 # Archive the newly created project
                 requests.post(
-                    f"<https://api.todoist.com/rest/v2/projects/{new_project['id']}/archive>",
+                    f"https://api.todoist.com/rest/v2/projects/{new_project['id']}/archive",
                     headers=headers
                 )
             return new_project["id"]
@@ -307,102 +293,91 @@ def create_or_update_notion_task(task_data, existing_tasks, project_map, label_m
     """Create or update a task in Notion"""
     database_id = get_secret("notion-tasks-db-id")
     headers = get_notion_headers()
-
+    
     # Check if task exists by Todoist ID stored in Firestore
     task_ref = db.collection('task_mappings').document(str(task_data["id"]))
     task_mapping = task_ref.get()
-
+    
     page_id = None
     if task_mapping.exists:
         page_id = task_mapping.to_dict().get('notion_id')
-
+    
     properties = {
-        "Name": {
-            "title": [{"text": {"content": task_data["content"]}}]
-        },
-        "Done": {
-            "checkbox": task_data.get("is_completed", False)
-        }
+        "Name": {"title": [{"text": {"content": task_data["content"]}}]},
+        "Done": {"checkbox": task_data.get("is_completed", False)}
     }
-
+    
     # Add due date if present
     if task_data.get("due"):
         properties["Due Date"] = {
             "date": {"start": task_data["due"]["date"]}
         }
-
+    
     # Add project link if present
     if task_data.get("project_id") and task_data["project_id"] in project_map:
         properties["All Pete's Projects"] = {
             "relation": [{"id": project_map[task_data["project_id"]]}]
         }
-
+    
     # Add label as Type if present
     if task_data.get("labels"):
         for label in task_data["labels"]:
             if label in label_map:
-                properties["Type"] = {
-                    "select": {"name": label_map[label]}
-                }
+                properties["Type"] = {"select": {"name": label_map[label]}}
                 break
-
+    
     if page_id:
         # Update existing
         response = requests.patch(
-            f"<https://api.notion.com/v1/pages/{page_id}>",
+            f"https://api.notion.com/v1/pages/{page_id}",
             headers=headers,
             json={"properties": properties}
         )
     else:
-        # Create new
         response = requests.post(
             "<https://api.notion.com/v1/pages>",
             headers=headers,
-            json={
-                "parent": {"database_id": database_id},
-                "properties": properties
-            }
+            json={"parent": {"database_id": database_id}, "properties": properties}
         )
-
+        
         if response.status_code in [200, 201]:
-            # Store mapping
             notion_id = response.json()["id"]
             task_ref.set({
                 'todoist_id': task_data["id"],
                 'notion_id': notion_id,
                 'last_synced': datetime.now()
             })
-
+    
     if response.status_code not in [200, 201]:
         raise Exception(f"Notion API error: {response.status_code} - {response.text}")
-
+    
     return response.json()
 
 def create_or_update_todoist_task(notion_task, project_map_reverse, existing_labels):
     """Create or update a task in Todoist based on Notion data"""
     headers = get_todoist_headers()
-
+    
     # Extract task info from Notion
     task_name = notion_task["properties"]["Name"]["title"][0]["text"]["content"]
     is_done = notion_task["properties"].get("Done", {}).get("checkbox", False)
-
+    
     # Check if task exists by Notion ID stored in Firestore
     task_mappings = db.collection('task_mappings').where('notion_id', '==', notion_task["id"]).stream()
     todoist_id = None
-
+    
     for mapping in task_mappings:
         todoist_id = mapping.to_dict().get('todoist_id')
         break
-
+    
     task_data = {
         "content": task_name,
         "is_completed": is_done
     }
-
+    
     # Add due date if present
     if "Due Date" in notion_task["properties"] and notion_task["properties"]["Due Date"].get("date"):
         task_data["due_date"] = notion_task["properties"]["Due Date"]["date"]["start"]
-
+    
     # Add project if linked
     if "All Pete's Projects" in notion_task["properties"]:
         project_relation = notion_task["properties"]["All Pete's Projects"].get("relation", [])
@@ -410,35 +385,35 @@ def create_or_update_todoist_task(notion_task, project_map_reverse, existing_lab
             notion_project_id = project_relation[0]["id"]
             if notion_project_id in project_map_reverse:
                 task_data["project_id"] = project_map_reverse[notion_project_id]
-
+    
     # Add label if Type is set
     if "Type" in notion_task["properties"] and notion_task["properties"]["Type"].get("select"):
         type_name = notion_task["properties"]["Type"]["select"]["name"]
         label_id = get_or_create_label(type_name, existing_labels)
         task_data["labels"] = [label_id]
-
+    
     if todoist_id:
         # Update existing task
         response = requests.post(
-            f"<https://api.todoist.com/rest/v2/tasks/{todoist_id}>",
+            f"https://api.todoist.com/rest/v2/tasks/{todoist_id}",
             headers=headers,
             json=task_data
         )
-
+        
         # Handle completion state
         if is_done and response.status_code == 200:
             requests.post(
-                f"<https://api.todoist.com/rest/v2/tasks/{todoist_id}/close>",
+                f"https://api.todoist.com/rest/v2/tasks/{todoist_id}/close",
                 headers=headers
             )
     else:
         # Create new task
         response = requests.post(
-            "<https://api.todoist.com/rest/v2/tasks>",
+            "https://api.todoist.com/rest/v2/tasks",
             headers=headers,
             json=task_data
         )
-
+        
         if response.status_code == 200:
             new_task = response.json()
             # Store mapping
@@ -447,22 +422,21 @@ def create_or_update_todoist_task(notion_task, project_map_reverse, existing_lab
                 'notion_id': notion_task["id"],
                 'last_synced': datetime.now()
             })
-
+            
             # Close if done
             if is_done:
                 requests.post(
-                    f"<https://api.todoist.com/rest/v2/tasks/{new_task['id']}/close>",
+                    f"https://api.todoist.com/rest/v2/tasks/{new_task['id']}/close",
                     headers=headers
                 )
-
+    
     if response.status_code != 200:
         raise Exception(f"Todoist API error: {response.status_code}")
-#
-# PASTE THIS ENTIRE FUNCTION
-#
+# Replace your existing sync_all function with this one
+
 def sync_all():
     """Main sync function for both projects and tasks"""
-    print("✅ Sync function started.")
+    print("✅ Sync function started.") # 1. START
 
     results = {
         "projects": {"created": 0, "updated": 0, "errors": []},
@@ -470,17 +444,17 @@ def sync_all():
         "timestamp": datetime.now().isoformat()
     }
 
-    # The 'try' block starts here.
     try:
         print("...Attempting to fetch Todoist projects...")
         todoist_projects = get_todoist_projects()
-        print("✅ Successfully fetched Todoist projects.")
+        print("✅ Successfully fetched Todoist projects.") # 3.
 
-        print("...Attempting to fetch Notion projects...")
+        print("...Attempting to fetch Notion projects...") # 4.
         notion_projects = get_notion_projects()
-        print("✅ Successfully fetched Notion projects.")
+        print("✅ Successfully fetched Notion projects.") # 5.
 
-        # --- Project Sync Logic ---
+
+        # Todoist → Notion
         print("...Starting sync from Todoist to Notion.")
         for project in todoist_projects:
             try:
@@ -490,6 +464,7 @@ def sync_all():
                 results["projects"]["errors"].append(f"Project '{project['name']}': {str(e)}")
         print("✅ Finished sync from Todoist to Notion.")
 
+        # Notion → Todoist (for new projects or status changes)
         print("...Starting sync from Notion to Todoist.")
         for project in notion_projects:
             if "Source" not in project["properties"] or not project["properties"]["Source"].get("select"):
@@ -501,31 +476,36 @@ def sync_all():
                     results["projects"]["errors"].append(f"Project '{project_name}': {str(e)}")
         print("✅ Finished sync from Notion to Todoist.")
 
-        # --- Create Project ID Maps (with the typo corrected) ---
-        project_map = {}
-        project_map_reverse = {}
+
+        # Create project ID maps for task sync
+        project_map = {}  # Todoist ID → Notion ID
+        project_map_reverse = {}  # Notion ID → Todoist ID
+
         print("...Refreshing project lists after sync.")
         todoist_projects = get_todoist_projects()
         notion_projects = get_notion_projects()
 
-        # THIS IS THE BLOCK WITH THE FIX FROM LAST TIME
-        for np in notion_projects:
-            if "Todoist URL" in np["properties"] and np["properties"]["Todoist URL"].get("url"):
-                url = np["properties"]["Todoist URL"]["url"]
-                todoist_id = str(url.split("/")[-1])
-                project_map[todoist_id] = np["id"]
-                project_map_reverse[np["id"]] = todoist_id
+# REPLACE WITH THIS CORRECTED BLOCK
+for np in notion_projects:
+    if "Todoist URL" in np["properties"] and np["properties"]["Todoist URL"].get("url"):
+        # Corrected "Todoist URL"
+        url = np["properties"]["Todoist URL"]["url"] 
+        todoist_id = str(url.split("/")[-1]) # Added str() for safety
+        project_map[todoist_id] = np["id"]
+        project_map_reverse[np["id"]] = todoist_id
         print("✅ Created project ID maps.")
 
-        # --- Task Sync Logic ---
+        # Sync tasks
         print("...Fetching tasks and labels.")
         todoist_tasks = get_todoist_tasks()
         notion_tasks = get_notion_tasks()
         existing_labels = get_todoist_labels()
         print("✅ Fetched tasks and labels.")
 
+        # Create label map
         label_map = {label["id"]: label["name"] for label in existing_labels}
 
+        # Todoist → Notion
         for task in todoist_tasks:
             try:
                 create_or_update_notion_task(task, notion_tasks, project_map, label_map)
@@ -533,6 +513,7 @@ def sync_all():
             except Exception as e:
                 results["tasks"]["errors"].append(f"Task '{task['content']}': {str(e)}")
 
+        # Notion → Todoist
         for task in notion_tasks:
             try:
                 create_or_update_todoist_task(task, project_map_reverse, existing_labels)
@@ -542,28 +523,37 @@ def sync_all():
                 results["tasks"]["errors"].append(f"Task '{task_name}': {str(e)}")
         print("✅ Task sync finished.")
 
-    # The 'except' block that matches the 'try' must be here and indented correctly.
     except Exception as e:
         print(f"❌ AN ERROR OCCURRED: {str(e)}")
         results["error"] = str(e)
 
-    # --- Final Steps ---
+    # Store sync history
     print("...Saving sync history to Firestore.")
     db.collection('sync_history').add(results)
     print("✅ Sync history saved. Function finished.")
-
     return results
 
 
 @functions_framework.http
 def sync_projects(request):
     """Main HTTP function entry point"""
+    # Set CORS headers for the preflight request
+    if request.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600'
+        }
+        return ('', 204, headers)
+    # Set CORS headers for the main request
+    cors_headers = {'Access-Control-Allow-Origin': '*'}
     try:
         results = sync_all()
-
+        
         # Build summary message
         message_parts = []
-
+        
         if results["projects"]["created"] > 0:
             message_parts.append(f"Projects created: {results['projects']['created']}")
         if results["projects"]["updated"] > 0:
@@ -572,46 +562,41 @@ def sync_projects(request):
             message_parts.append(f"Tasks created: {results['tasks']['created']}")
         if results["tasks"]["updated"] > 0:
             message_parts.append(f"Tasks updated: {results['tasks']['updated']}")
-
+        
         if not message_parts:
             message_parts.append("No changes needed")
-
+            
         message = f"Sync complete! {', '.join(message_parts)}."
-
+        
         total_errors = len(results["projects"]["errors"]) + len(results["tasks"]["errors"])
         if total_errors > 0:
             message += f" Errors: {total_errors}."
-
+        
         return {
             "status": "success",
             "message": message,
             "details": results
         }, 200, {'Access-Control-Allow-Origin': '*'}
-
+        
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }, 500, {'Access-Control-Allow-Origin': '*'}
+        return ({"status": "error", "message": str(e)}, 500, cors_headers)
 
 @functions_framework.http
 def get_sync_history(request):
     """Get recent sync history"""
     try:
-        # Get last 10 syncs
         history = []
         docs = db.collection('sync_history').order_by('timestamp', direction=firestore.Query.DESCENDING).limit(10).stream()
-
+        
         for doc in docs:
             history.append(doc.to_dict())
-
+        
         return {
             "status": "success",
             "history": history
         }, 200, {'Access-Control-Allow-Origin': '*'}
-
+        
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }, 500, {'Access-Control-Allow-Origin': '*'}
+        return ({"status": "error", "message": str(e)}, 500, {'Access-Control-Allow-Origin': '*'})
+
+
