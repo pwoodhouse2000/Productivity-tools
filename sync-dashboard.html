@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productivity Sync Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #2563eb;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .sync-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        
+        .sync-button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sync-button:hover {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        
+        .sync-button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .sync-button.syncing {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .status-message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            display: none;
+        }
+        
+        .status-message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .status-message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .history-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+        
+        .history-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .history-time {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .history-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        .stat {
+            font-size: 14px;
+        }
+        
+        .stat.success {
+            color: #059669;
+        }
+        
+        .stat.error {
+            color: #dc2626;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #64748b;
+            padding: 20px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            header, .sync-section, .history-section {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .sync-button {
+                padding: 12px 30px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Productivity Sync Dashboard</h1>
+            <p class="subtitle">Sync your projects and tasks between Todoist and Notion</p>
+        </header>
+        
+        <div class="sync-section">
+            <button id="syncButton" class="sync-button" onclick="runSync()">
+                <span id="syncIcon">🔄</span>
+                <span id="syncText">Sync Now</span>
+            </button>
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+        
+        <div class="history-section">
+            <h2>Sync History</h2>
+            <div id="historyContainer" class="loading">
+                <div class="spinner"></div>
+                <p>Loading history...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const SYNC_URL = 'https://us-central1-productivity-sync-463008.cloudfunctions.net/sync-projects';
+        const HISTORY_URL = 'https://us-central1-productivity-sync-463008.cloudfunctions.net/get-sync-history';
+        
+        async function runSync() {
+            const button = document.getElementById('syncButton');
+            const statusMessage = document.getElementById('statusMessage');
+            const syncIcon = document.getElementById('syncIcon');
+            const syncText = document.getElementById('syncText');
+            
+            // Disable button and show syncing state
+            button.disabled = true;
+            button.classList.add('syncing');
+            syncIcon.textContent = '⏳';
+            syncText.textContent = 'Syncing...';
+            statusMessage.style.display = 'none';
+            
+            try {
+                const response = await fetch(SYNC_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusMessage.className = 'status-message success';
+                    statusMessage.textContent = data.message;
+                    
+                    // Reload history
+                    loadHistory();
+                } else {
+                    statusMessage.className = 'status-message error';
+                    statusMessage.textContent = data.message || 'Sync failed';
+                }
+            } catch (error) {
+                statusMessage.className = 'status-message error';
+                statusMessage.textContent = 'Network error: ' + error.message;
+            } finally {
+                // Reset button state
+                button.disabled = false;
+                button.classList.remove('syncing');
+                syncIcon.textContent = '🔄';
+                syncText.textContent = 'Sync Now';
+                statusMessage.style.display = 'block';
+            }
+        }
+        
+        async function loadHistory() {
+            const container = document.getElementById('historyContainer');
+            
+            try {
+                const response = await fetch(HISTORY_URL);
+                const data = await response.json();
+                
+                if (response.ok && data.history) {
+                    container.innerHTML = '';
+                    
+                    if (data.history.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #64748b;">No sync history yet.</p>';
+                    } else {
+                        data.history.forEach(item => {
+                            const historyItem = createHistoryItem(item);
+                            container.appendChild(historyItem);
+                        });
+                    }
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: #dc2626;">Failed to load history</p>';
+                }
+            } catch (error) {
+                container.innerHTML = '<p style="text-align: center; color: #dc2626;">Error loading history: ' + error.message + '</p>';
+            }
+        }
+        
+        function createHistoryItem(item) {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            
+            const time = new Date(item.timestamp).toLocaleString();
+            
+            let statsHtml = '<div class="history-stats">';
+            
+            // Projects stats
+            if (item.projects) {
+                if (item.projects.created > 0) {
+                    statsHtml += `<span class="stat success">📁 Projects created: ${item.projects.created}</span>`;
+                }
+                if (item.projects.updated > 0) {
+                    statsHtml += `<span class="stat success">📁 Projects updated: ${item.projects.updated}</span>`;
+                }
+                if (item.projects.errors && item.projects.errors.length > 0) {
+                    statsHtml += `<span class="stat error">⚠️ Project errors: ${item.projects.errors.length}</span>`;
+                }
+            }
+            
+            // Tasks stats
+            if (item.tasks) {
+                if (item.tasks.created > 0) {
+                    statsHtml += `<span class="stat success">✅ Tasks created: ${item.tasks.created}</span>`;
+                }
+                if (item.tasks.updated > 0) {
+                    statsHtml += `<span class="stat success">✅ Tasks updated: ${item.tasks.updated}</span>`;
+                }
+                if (item.tasks.errors && item.tasks.errors.length > 0) {
+                    statsHtml += `<span class="stat error">⚠️ Task errors: ${item.tasks.errors.length}</span>`;
+                }
+            }
+            
+            statsHtml += '</div>';
+            
+            div.innerHTML = `
+                <div class="history-time">${time}</div>
+                ${statsHtml}
+            `;
+            
+            return div;
+        }
+        
+        // Load history on page load
+        window.addEventListener('load', loadHistory);
+    </script>
+</body>
+</html>
