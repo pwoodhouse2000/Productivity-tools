@@ -457,29 +457,41 @@ def create_or_update_todoist_task(notion_task, project_map_reverse, existing_lab
     
     if response.status_code != 200:
         raise Exception(f"Todoist API error: {response.status_code}")
+# Replace your existing sync_all function with this one
 
 def sync_all():
     """Main sync function for both projects and tasks"""
+    print("✅ Sync function started.") # 1. START
+
     results = {
         "projects": {"created": 0, "updated": 0, "errors": []},
         "tasks": {"created": 0, "updated": 0, "errors": []},
         "timestamp": datetime.now().isoformat()
     }
-    
+
     try:
-        # Sync projects first (both directions)
+        # Let's add logging around the very first API calls
+        print("...Attempting to fetch Todoist projects...") # 2.
         todoist_projects = get_todoist_projects()
+        print("✅ Successfully fetched Todoist projects.") # 3.
+
+        print("...Attempting to fetch Notion projects...") # 4.
         notion_projects = get_notion_projects()
-        
+        print("✅ Successfully fetched Notion projects.") # 5.
+
+
         # Todoist → Notion
+        print("...Starting sync from Todoist to Notion.")
         for project in todoist_projects:
             try:
                 create_or_update_notion_project(project, notion_projects)
                 results["projects"]["updated"] += 1
             except Exception as e:
                 results["projects"]["errors"].append(f"Project '{project['name']}': {str(e)}")
-        
+        print("✅ Finished sync from Todoist to Notion.")
+
         # Notion → Todoist (for new projects or status changes)
+        print("...Starting sync from Notion to Todoist.")
         for project in notion_projects:
             if "Source" not in project["properties"] or not project["properties"]["Source"].get("select"):
                 # This is a new project created in Notion
@@ -489,30 +501,35 @@ def sync_all():
                 except Exception as e:
                     project_name = project["properties"]["Name"]["title"][0]["text"]["content"]
                     results["projects"]["errors"].append(f"Project '{project_name}': {str(e)}")
-        
+        print("✅ Finished sync from Notion to Todoist.")
+
+
         # Create project ID maps for task sync
         project_map = {}  # Todoist ID → Notion ID
         project_map_reverse = {}  # Notion ID → Todoist ID
-        
-        # Refresh project lists after sync
+
+        print("...Refreshing project lists after sync.")
         todoist_projects = get_todoist_projects()
         notion_projects = get_notion_projects()
-        
+
         for np in notion_projects:
             if "Todoist URL" in np["properties"] and np["properties"]["Todoist URL"].get("url"):
-                url = np["properties"]["Todoist URL"]["url"]
+                url = np["properties"]["Todo_URL"]["url"]
                 todoist_id = url.split("/")[-1]
                 project_map[todoist_id] = np["id"]
                 project_map_reverse[np["id"]] = todoist_id
-        
+        print("✅ Created project ID maps.")
+
         # Sync tasks
+        print("...Fetching tasks and labels.")
         todoist_tasks = get_todoist_tasks()
         notion_tasks = get_notion_tasks()
         existing_labels = get_todoist_labels()
-        
+        print("✅ Fetched tasks and labels.")
+
         # Create label map
         label_map = {label["id"]: label["name"] for label in existing_labels}
-        
+
         # Todoist → Notion
         for task in todoist_tasks:
             try:
@@ -520,7 +537,7 @@ def sync_all():
                 results["tasks"]["updated"] += 1
             except Exception as e:
                 results["tasks"]["errors"].append(f"Task '{task['content']}': {str(e)}")
-        
+
         # Notion → Todoist
         for task in notion_tasks:
             try:
@@ -530,12 +547,17 @@ def sync_all():
                 task_name = task["properties"]["Name"]["title"][0]["text"]["content"]
                 results["tasks"]["errors"].append(f"Task '{task_name}': {str(e)}")
         
+        print("✅ Task sync finished.")
+
     except Exception as e:
+        print(f"❌ AN ERROR OCCURRED: {str(e)}") # This will catch any exceptions
         results["error"] = str(e)
-    
+
     # Store sync history
+    print("...Saving sync history to Firestore.")
     db.collection('sync_history').add(results)
-    
+    print("✅ Sync history saved. Function finished.")
+
     return results
 
 @functions_framework.http
