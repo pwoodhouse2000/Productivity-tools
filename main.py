@@ -457,8 +457,6 @@ def create_or_update_todoist_task(notion_task, project_map_reverse, existing_lab
 
     if response.status_code != 200:
         raise Exception(f"Todoist API error: {response.status_code}")
-# Replace your existing sync_all function with this one
-
 #
 # PASTE THIS ENTIRE FUNCTION
 #
@@ -527,12 +525,14 @@ def sync_all():
         print("✅ Fetched tasks and labels.")
 
         label_map = {label["id"]: label["name"] for label in existing_labels}
+
         for task in todoist_tasks:
             try:
                 create_or_update_notion_task(task, notion_tasks, project_map, label_map)
                 results["tasks"]["updated"] += 1
             except Exception as e:
                 results["tasks"]["errors"].append(f"Task '{task['content']}': {str(e)}")
+
         for task in notion_tasks:
             try:
                 create_or_update_todoist_task(task, project_map_reverse, existing_labels)
@@ -553,6 +553,7 @@ def sync_all():
     print("✅ Sync history saved. Function finished.")
 
     return results
+
 
 @functions_framework.http
 def sync_projects(request):
