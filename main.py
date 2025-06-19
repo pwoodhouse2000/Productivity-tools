@@ -37,37 +37,56 @@ def get_notion_headers():
         "Content-Type": "application/json"
     }
 
+#
+# REPLACE this function
+#
 def get_todoist_projects():
     """Fetch all projects from Todoist"""
-    response = requests.get("[https://api.todoist.com/rest/v2/projects](https://api.todoist.com/rest/v2/projects)", headers=get_todoist_headers())
-    response.raise_for_status()
+    # CORRECTED URL STRING:
+    response = requests.get("https://api.todoist.com/rest/v2/projects", headers=get_todoist_headers())
+    response.raise_for_status() 
     return response.json()
 
+#
+# REPLACE this function
+#
 def get_todoist_tasks():
     """Fetch all active tasks from Todoist"""
-    response = requests.get("[https://api.todoist.com/rest/v2/tasks](https://api.todoist.com/rest/v2/tasks)", headers=get_todoist_headers())
+    # CORRECTED URL STRING:
+    response = requests.get("https://api.todoist.com/rest/v2/tasks", headers=get_todoist_headers())
     response.raise_for_status()
     return response.json()
 
+#
+# REPLACE this function
+#
 def get_todoist_completed_tasks():
     """Fetch recently completed tasks from Todoist"""
-    # Note: This requires Todoist Pro subscription
     try:
-        response = requests.get("[https://api.todoist.com/rest/v2/completed/get_all](https://api.todoist.com/rest/v2/completed/get_all)", headers=get_todoist_headers())
+        # CORRECTED URL STRING:
+        response = requests.get("https://api.todoist.com/rest/v2/completed/get_all", headers=get_todoist_headers())
         response.raise_for_status()
         return response.json().get("items", [])
     except:
         return []
 
+#
+# REPLACE this function
+#
 def get_todoist_labels():
     """Fetch all labels from Todoist"""
-    response = requests.get("[https://api.todoist.com/rest/v2/labels](https://api.todoist.com/rest/v2/labels)", headers=get_todoist_headers())
+    # CORRECTED URL STRING:
+    response = requests.get("https://api.todoist.com/rest/v2/labels", headers=get_todoist_headers())
     response.raise_for_status()
     return response.json()
 
+#
+# REPLACE this function
+#
 def create_todoist_label(name):
     """Create a new label in Todoist"""
-    response = requests.post("[https://api.todoist.com/rest/v2/labels](https://api.todoist.com/rest/v2/labels)", headers=get_todoist_headers(), json={"name": name})
+    # CORRECTED URL STRING:
+    response = requests.post("https://api.todoist.com/rest/v2/labels", headers=get_todoist_headers(), json={"name": name})
     response.raise_for_status()
     return response.json()
 
