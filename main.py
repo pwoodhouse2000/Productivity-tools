@@ -102,7 +102,8 @@ def get_notion_projects():
     """Get existing projects from Notion database"""
     database_id = get_secret("notion-database-id")
     headers = get_notion_headers()
-    response = requests.post(f"[https://api.notion.com/v1/databases/](https://api.notion.com/v1/databases/){database_id}/query", headers=headers, json={})
+    url = f"https://api.notion.com/v1/databases/{database_id}/query"
+    response = requests.post(url, headers=headers, json={})
     response.raise_for_status()
     return response.json()["results"]
 
@@ -110,7 +111,8 @@ def get_notion_tasks():
     """Get tasks from The List of Things database"""
     database_id = get_secret("notion-tasks-db-id")
     headers = get_notion_headers()
-    response = requests.post(f"[https://api.notion.com/v1/databases/](https://api.notion.com/v1/databases/){database_id}/query", headers=headers, json={})
+    url = f"https://api.notion.com/v1/databases/{database_id}/query"
+    response = requests.post(url, headers=headers, json={})
     response.raise_for_status()
     return response.json()["results"]
 
@@ -119,7 +121,8 @@ def get_notion_categories():
     try:
         categories_db_id = get_secret("notion-categories-db-id")
         headers = get_notion_headers()
-        response = requests.post(f"[https://api.notion.com/v1/databases/](https://api.notion.com/v1/databases/){categories_db_id}/query", headers=headers, json={})
+        url = f"https://api.notion.com/v1/databases/{categories_db_id}/query"
+        response = requests.post(url, headers=headers, json={})
         response.raise_for_status()
         categories = {}
         for page in response.json()["results"]:
