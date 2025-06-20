@@ -139,7 +139,9 @@ def get_notion_categories():
     except Exception as e:
         print(f"Warning: Could not fetch categories: {str(e)}")
         return {}
-
+#
+# REPLACE this entire function
+#
 def create_or_update_notion_project(project_data, existing_projects, all_todoist_projects, category_map):
     """Create or update a project in Notion"""
     database_id = get_secret("notion-database-id")
@@ -163,7 +165,7 @@ def create_or_update_notion_project(project_data, existing_projects, all_todoist
     }
 
     if "id" in project_data:
-        properties["Todoist URL"] = {"url": f"[https://todoist.com/app/project/](https://todoist.com/app/project/){project_data['id']}"}
+        properties["Todoist URL"] = {"url": f"https://todoist.com/app/project/{project_data['id']}"}
         properties["Todoist ID"] = {"rich_text": [{"text": {"content": str(project_data['id'])}}]}
 
     properties["Status"] = {"select": {"name": "Done" if project_data.get("is_archived") else "In Progress"}}
@@ -174,9 +176,13 @@ def create_or_update_notion_project(project_data, existing_projects, all_todoist
             properties["Category"] = {"relation": [{"id": category_map[parent_name]}]}
 
     if page_id:
-        response = requests.patch(f"[https://api.notion.com/v1/pages/](https://api.notion.com/v1/pages/){page_id}", headers=headers, json={"properties": properties})
+        # --- THIS IS ONE OF THE FIXES ---
+        url = f"https://api.notion.com/v1/pages/{page_id}"
+        response = requests.patch(url, headers=headers, json={"properties": properties})
     else:
-        response = requests.post("[https://api.notion.com/v1/pages](https://api.notion.com/v1/pages)", headers=headers, json={"parent": {"database_id": database_id}, "properties": properties})
+        # --- THIS IS THE OTHER FIX ---
+        url = "https://api.notion.com/v1/pages"
+        response = requests.post(url, headers=headers, json={"parent": {"database_id": database_id}, "properties": properties})
 
     response.raise_for_status()
     return response.json()
