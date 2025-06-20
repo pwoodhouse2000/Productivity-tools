@@ -175,18 +175,23 @@ def create_or_update_notion_project(project_data, existing_projects, all_todoist
         if parent_name and parent_name in category_map:
             properties["Category"] = {"relation": [{"id": category_map[parent_name]}]}
 
+    # --- START: NEW DEBUGGING CODE ---
+    payload = {"properties": properties}
+    print("SENDING THIS PAYLOAD TO NOTION:")
+    print(json.dumps(payload, indent=2))
+    # --- END: NEW DEBUGGING CODE ---
+
     if page_id:
-        # --- THIS IS ONE OF THE FIXES ---
         url = f"https://api.notion.com/v1/pages/{page_id}"
-        response = requests.patch(url, headers=headers, json={"properties": properties})
+        response = requests.patch(url, headers=headers, json=payload) # Use the payload variable
     else:
-        # --- THIS IS THE OTHER FIX ---
         url = "https://api.notion.com/v1/pages"
-        response = requests.post(url, headers=headers, json={"parent": {"database_id": database_id}, "properties": properties})
+        # Add the parent database for new pages
+        payload["parent"] = {"database_id": database_id}
+        response = requests.post(url, headers=headers, json=payload) # Use the payload variable
 
     response.raise_for_status()
     return response.json()
-
 def create_or_update_todoist_project(notion_project, todoist_projects):
     """Create or update a project in Todoist based on Notion data"""
     headers = get_todoist_headers()
