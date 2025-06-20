@@ -192,6 +192,10 @@ def create_or_update_notion_project(project_data, existing_projects, all_todoist
 
     response.raise_for_status()
     return response.json()
+
+#
+# REPLACE this entire function
+#
 def create_or_update_todoist_project(notion_project, todoist_projects):
     """Create or update a project in Todoist based on Notion data"""
     headers = get_todoist_headers()
@@ -202,19 +206,27 @@ def create_or_update_todoist_project(notion_project, todoist_projects):
     existing_project = next((p for p in todoist_projects if p["name"] == project_name), None)
 
     if existing_project:
+        # Project already exists, check if its status needs updating.
         if existing_project["is_archived"] != is_archived:
             endpoint = "archive" if is_archived else "unarchive"
-            requests.post(f"[https://api.todoist.com/rest/v2/projects/](https://api.todoist.com/rest/v2/projects/){existing_project['id']}/{endpoint}", headers=headers)
-        return existing_project["id"]
+            requests.post(f"https://api.todoist.com/rest/v2/projects/{existing_project['id']}/{endpoint}", headers=headers)
+        
+        # --- THIS IS THE FIX ---
+        # ALWAYS return the existing project object, even if no update was needed.
+        return existing_project
+    
     else:
+        # Project does not exist, create it.
         project_data = {"name": project_name}
-        response = requests.post("[https://api.todoist.com/rest/v2/projects](https://api.todoist.com/rest/v2/projects)", headers=headers, json=project_data)
+        response = requests.post("https://api.todoist.com/rest/v2/projects", headers=headers, json=project_data)
         response.raise_for_status()
         new_project = response.json()
         if is_archived:
-            requests.post(f"[https://api.todoist.com/rest/v2/projects/](https://api.todoist.com/rest/v2/projects/){new_project['id']}/archive", headers=headers)
-        return new_project["id"]
-
+            requests.post(f"https://api.todoist.com/rest/v2/projects/{new_project['id']}/archive", headers=headers)
+        
+        # Return the newly created project object
+        return new_project
+        
 def create_or_update_notion_task(task_data, project_map, label_map, is_completed=False):
     """Create or update a task in Notion"""
     database_id = get_secret("notion-tasks-db-id")
