@@ -227,19 +227,7 @@ def create_or_update_todoist_project(notion_project, todoist_projects):
         
         # Return the newly created project object
         return new_project
-    
-    else:
-        # Project does not exist, create it.
-        project_data = {"name": project_name}
-        response = requests.post("https://api.todoist.com/rest/v2/projects", headers=headers, json=project_data)
-        response.raise_for_status()
-        new_project = response.json()
-        if is_archived:
-            requests.post(f"https://api.todoist.com/rest/v2/projects/{new_project['id']}/archive", headers=headers)
-        
-        # Return the newly created project object
-        return new_project
-        
+          
 def create_or_update_notion_task(task_data, project_map, label_map, is_completed=False):
     """Create or update a task in Notion"""
     database_id = get_secret("notion-tasks-db-id")
