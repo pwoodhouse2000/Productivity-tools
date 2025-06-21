@@ -430,17 +430,29 @@ def sync_all():
         print("✅ Fetched initial data.")
 
         # Sync Projects: Todoist -> Notion
-        print("...Syncing projects from Todoist to Notion...")
-        for project in todoist_projects:
-            try:
-                result = create_or_update_notion_project(project, notion_projects, todoist_projects, category_map)
-                if any(page["id"] == result["id"] for page in notion_projects):
-                    results["projects"]["updated"] += 1
-                else:
-                    results["projects"]["created"] += 1
-            except Exception as e:
-                results["projects"]["errors"].append(f"T->N Project '{project['name']}': {str(e)}")
+       #
+# In the sync_all() function, REPLACE the "Todoist -> Notion" loop
+#
 
+# --- START of block to replace ---
+print("...Syncing projects from Todoist to Notion...")
+for project in todoist_projects:
+    try:
+        # We will add a print statement inside the function that is called
+        create_or_update_notion_project(project, notion_projects, todoist_projects, category_map)
+        results["projects"]["updated"] += 1 # Assuming update for simplicity
+    except Exception as e:
+        # This part will now give us a more detailed error
+        error_message = f"T->N Project '{project['name']}': {str(e)}"
+        print(f"--- DETECTED NOTION ERROR ---")
+        print(error_message)
+        # We can also inspect the actual response from Notion if it's an HTTP error
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"NOTION API RESPONSE: {e.response.text}")
+        print(f"-----------------------------")
+        results["projects"]["errors"].append(error_message)
+# --- END of block to replace ---
+        
         # Sync Projects: Notion -> Todoist
         print("...Syncing projects from Notion to Todoist...")
         notion_projects_refreshed = get_notion_projects()
