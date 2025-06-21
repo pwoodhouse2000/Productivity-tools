@@ -541,6 +541,8 @@ def sync_all():
     print("...Saving sync history to Firestore.")
     db.collection('sync_history').add(results)
     print("✅ Sync history saved. Function finished.")
+     # --- ADD THIS LINE ---
+    print(f"FINAL RESULTS: {json.dumps(results, indent=2)}")
     return results
 
 @functions_framework.http
