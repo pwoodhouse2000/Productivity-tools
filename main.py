@@ -194,7 +194,7 @@ def create_or_update_notion_project(project_data, existing_projects, all_todoist
     return response.json()
 
 #
-# REPLACE this entire function
+# REPLACE this entire function one last time
 #
 def create_or_update_todoist_project(notion_project, todoist_projects):
     """Create or update a project in Todoist based on Notion data"""
@@ -209,11 +209,24 @@ def create_or_update_todoist_project(notion_project, todoist_projects):
         # Project already exists, check if its status needs updating.
         if existing_project["is_archived"] != is_archived:
             endpoint = "archive" if is_archived else "unarchive"
-            requests.post(f"https://api.todoist.com/rest/v2/projects/{existing_project['id']}/{endpoint}", headers=headers)
+            requests.post(f"https://api.todoist.com/rest/v2/projects/{existing_project['id']}/{endpoint}", headers=headers).raise_for_status()
         
         # --- THIS IS THE FIX ---
         # ALWAYS return the existing project object, even if no update was needed.
         return existing_project
+    
+    else:
+        # Project does not exist, create it.
+        project_data = {"name": project_name}
+        response = requests.post("https://api.todoist.com/rest/v2/projects", headers=headers, json=project_data)
+        response.raise_for_status()
+        new_project = response.json()
+        
+        if is_archived:
+            requests.post(f"https://api.todoist.com/rest/v2/projects/{new_project['id']}/archive", headers=headers).raise_for_status()
+        
+        # Return the newly created project object
+        return new_project
     
     else:
         # Project does not exist, create it.
