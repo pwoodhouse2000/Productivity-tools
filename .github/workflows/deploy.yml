@@ -23,4 +23,5 @@ jobs:
             --allow-unauthenticated \
             --set-env-vars GCP_PROJECT=${{ secrets.GCP_PROJECT }} \
             --timeout=60
-      - run: echo "Deployed to https://us-central1-${{ secrets.GCP_PROJECT }}.cloudfunctions.net/sync-projects"
+      - run: |
+          echo "Deployed to https://us-central1-${{ secrets.GCP_PROJECT }}.cloudfunctions.net/sync-projects"
