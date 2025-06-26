@@ -1,5 +1,4 @@
-yaml
-name:deploy
+name: deploy
 on:
   push:
     branches: [main]
