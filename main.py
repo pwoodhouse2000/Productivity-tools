@@ -2,6 +2,7 @@ import functions_framework
 import json
 import os
 import requests
+from datetime import datetime
 from google.cloud import secretmanager
 
 # Initialize Secret Manager client
@@ -30,10 +31,8 @@ def get_todoist_projects():
         projects = response.json()
         project_map = {project["id"]: project["name"] for project in projects}
         return projects, project_map
-    else:
-        # Log the error or handle it more gracefully
-        print(f"Todoist API error: {response.status_code} - {response.text}")
-        return [], {}
+    
+    raise Exception(f"Todoist API error: {response.status_code} - {response.text}")
 
 def get_notion_projects():
     """Get existing projects from Notion database"""
@@ -54,17 +53,16 @@ def get_notion_projects():
     
     if response.status_code == 200:
         return response.json()["results"]
-    else:
-        return []
+    
+    raise Exception(f"Notion API query error: {response.status_code} - {response.text}")
 
-def create_notion_project(project_name, category_name=None, source=None, last_synced=None, description=None):
+def create_notion_project(project_name, category_name=None, source=None, last_synced=None):
     """
-    Create a new project in Notion with additional fields: Source, Last Synced, and Description.
+    Create a new project in Notion with additional fields: Category, Source, and Last Synced.
     - project_name: Name of the project (string)
     - category_name: Optional category (string)
     - source: Optional source of the project (string)
     - last_synced: Optional last synced date/time (string, ISO format recommended)
-    - description: Optional description (string)
     """
     api_key = get_secret("notion-api-key")
     database_id = get_secret("notion-database-id")
@@ -89,8 +87,6 @@ def create_notion_project(project_name, category_name=None, source=None, last_sy
         properties["Source"] = {"rich_text": [{"text": {"content": source}}]}
     if last_synced:
         properties["Last Synced"] = {"date": {"start": last_synced}}
-    if description:
-        properties["Description"] = {"rich_text": [{"text": {"content": description}}]}
 
     data = {
         "parent": {"database_id": database_id},
@@ -115,12 +111,13 @@ def sync_todoist_to_notion():
     
     existing_names = set()
     for page in notion_projects:
-        try:
-            if "Name" in page["properties"]:
-                title_prop = page["properties"]["Name"].get("title", [])
-                if title_prop:
-                    existing_names.add(title_prop[0]["text"]["content"])
-        except:
+        # Safely extract the project name to avoid errors on malformed pages
+        try: 
+            name_property = page.get("properties", {}).get("Name", {})
+            title_list = name_property.get("title", [])
+            if title_list and title_list[0].get("text", {}).get("content"):
+                existing_names.add(title_list[0]["text"]["content"])
+        except (KeyError, IndexError):
             pass
     
     results = {
@@ -143,16 +140,13 @@ def sync_todoist_to_notion():
         else:
             try:
                 # Set the new fields for Notion
-                source = "Todoist"  # You can change this as needed
-                from datetime import datetime
+                source = "Todoist"
                 last_synced = datetime.utcnow().isoformat()  # Current UTC time in ISO format
-                description = project.get("description", "")  # Use Todoist description if available
                 create_notion_project(
                     project_name,
                     category_name=category_name,
                     source=source,
-                    last_synced=last_synced,
-                    description=description
+                    last_synced=last_synced
                 )
                 results["created"] += 1
             except Exception as e:

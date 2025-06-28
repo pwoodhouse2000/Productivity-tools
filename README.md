@@ -2,7 +2,7 @@
 
 ## Overview
 This Google Cloud Function, defined in `main.py`, syncs projects from Todoist to a specified Notion database. It is a one-way synchronization: new projects in Todoist are added to Notion. Existing projects in Notion are identified by their **name** to prevent duplicates.
-
+Child projects in Todoist are automatically assigned a "Category" in Notion based on their parent project's name.
 ## `main.py` Script Purpose
 The `main.py` script contains the core logic for the Todoist to Notion synchronization process. It is designed to be deployed as a Google Cloud Function and triggered via HTTP. The script performs the following key operations:
 - Securely retrieves API keys and database IDs from Google Cloud Secret Manager.
@@ -35,7 +35,7 @@ The following secrets are expected to be configured in Secret Manager:
 ### `get_todoist_projects() -> list`
 -   **Purpose**: Fetches all active projects from the user's Todoist account.
 -   **Arguments**: None.
--   **Returns**: `list` - A list of Todoist project objects (dictionaries).
+-   **Returns**: `tuple` - A tuple containing a list of Todoist project objects and a dictionary mapping project IDs to project names (for parent-child lookups).
 -   **Details**:
     -   Retrieves the Todoist API key using `get_secret("todoist-api-key")`.
     -   Makes a GET request to the Todoist REST API endpoint (`https://api.todoist.com/rest/v2/projects`).
@@ -50,14 +50,17 @@ The following secrets are expected to be configured in Secret Manager:
     -   Makes a POST request to the Notion API endpoint (`https://api.notion.com/v1/databases/{database_id}/query`) to query all pages in the database.
     -   Uses Notion API version `2022-06-28`.
 
-### `create_notion_project(project_name: str) -> dict`
+### `create_notion_project(project_name: str, category_name: str = None, source: str = None, last_synced: str = None) -> dict`
 -   **Purpose**: Creates a new page (project) in the specified Notion database.
 -   **Arguments**:
     -   `project_name (str)`: The name of the project to create in Notion.
+    -   `category_name (str, optional)`: The name of the parent project, to be set in the "Category" property.
+    -   `source (str, optional)`: The source of the project (e.g., "Todoist").
+    -   `last_synced (str, optional)`: The ISO 8601 timestamp of the sync.
 -   **Returns**: `dict` - The Notion page object created.
 -   **Details**:
     -   Retrieves the Notion API key and Database ID.
-    -   Constructs the data payload for creating a new page. The page's "Name" property (which must be a Title property in Notion) is set to `project_name`.
+    -   Constructs the data payload for creating a new page. It sets the "Name" property and can optionally set "Category", "Source", and "Last Synced" properties if they exist in the Notion database.
     -   Makes a POST request to the Notion API endpoint (`https://api.notion.com/v1/pages`).
     -   Raises an exception if the page creation fails, including the status code and error text from Notion.
 
@@ -76,6 +79,8 @@ The following secrets are expected to be configured in Secret Manager:
     -   Iterates through each Todoist project:
         -   If the project name already exists in Notion, it's skipped.
         -   Otherwise, it calls `create_notion_project()` to create it in Notion.
+        -   If a Todoist project has a parent, the parent's name is passed as `category_name`.
+        -   It also sets the `source` to "Todoist" and `last_synced` to the current time.
         -   Tracks counts for created, skipped projects, and any errors encountered.
 
 ### `sync_projects(request) -> tuple`
@@ -132,10 +137,12 @@ This function relies on Google Secret Manager to securely store API keys and oth
 
 ### 5. Notion Database Setup
 Your Notion database must be configured with at least the following property:
-
 -   **`Name`**: This must be a **Title** property. It will store the name of the Todoist project.
 
-*Note: The current version of `main.py` only syncs the project name. The previous README mentioned `Source`, `Description`, `Todoist ID`, and `Last Synced` properties. While these are good practice for a more robust sync, the provided `main.py` does not utilize them. If you plan to extend the script, you would add these properties back to your Notion setup and modify `create_notion_project` and `sync_todoist_to_notion` accordingly.*
+To support all features of the current script, you should add the following properties:
+-   **`Category`**: A **Select** property. This will be populated with the name of the parent project from Todoist.
+-   **`Source`**: A **Rich Text** (or Text) property. This will be set to "Todoist".
+-   **`Last Synced`**: A **Date** property. This will be set to the timestamp of when the project was synced.
 
 **Share the Integration**: You also need to share your Notion integration with the target database:
 1.  Open the Notion database.
