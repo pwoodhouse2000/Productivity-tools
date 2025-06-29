@@ -1,14 +1,29 @@
 # Todoist to Notion Sync
 
 ## Overview
-This Google Cloud Function, defined in `main.py`, syncs projects from Todoist to a specified Notion database. It is a one-way synchronization: new projects in Todoist are added to Notion. Existing projects in Notion are identified by their **name** to prevent duplicates.
-Child projects in Todoist are automatically assigned a "Category" in Notion based on their parent project's name.
-## `main.py` Script Purpose
-The `main.py` script contains the core logic for the Todoist to Notion synchronization process. It is designed to be deployed as a Google Cloud Function and triggered via HTTP. The script performs the following key operations:
-- Securely retrieves API keys and database IDs from Google Cloud Secret Manager.
-- Fetches project data from Todoist.
-- Fetches existing project data from Notion.
-- Compares the projects and creates new entries in Notion for projects that don't already exist there.
+This Google Cloud Function performs a one-way synchronization of projects and tasks from Todoist into two separate Notion databases. It is designed to be robust, scalable, and easy to deploy.
+
+### Key Features
+-   **Project & Task Syncing**: Syncs both Todoist projects and tasks.
+-   **Dual Database Model**: Uses separate Notion databases for "Master Projects" and "Master Tasks" for better organization.
+-   **Reliable Matching**: Uses a `Todoist ID` property in Notion to reliably track synced items and prevent duplicates, even if names change.
+-   **Relational Linking**: Automatically links tasks to their parent project in Notion using a `Relation` property.
+-   **Secure**: All secrets (API keys, database IDs) are managed securely using Google Cloud Secret Manager.
+
+## Project Structure
+The code is organized into a `src` directory for clarity and maintainability:
+```
+.
+├── .github/workflows/deploy.yml # GitHub Actions workflow for automated deployment
+├── main.py                      # The Cloud Function entry point
+├── requirements.txt             # Python dependencies
+├── README.md                    # This file
+├── REQUIREMENTS.md              # Detailed functional requirements for the project
+└── src/
+    ├── __init__.py
+    ├── clients.py               # Handles all API communication with Todoist and Notion
+    └── sync.py                  # Contains the core synchronization logic
+```
 
 ## Google Cloud Secret Manager Usage
 The script relies heavily on Google Cloud Secret Manager to securely store and access sensitive information like API keys and database IDs. This avoids hardcoding credentials into the source code.
