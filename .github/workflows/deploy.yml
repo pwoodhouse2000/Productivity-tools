@@ -21,6 +21,7 @@ jobs:
             --entry-point=sync_projects \
             --trigger-http \
             --allow-unauthenticated \
+            --service-account=sync-function-sa@${{ secrets.GCP_PROJECT }}.iam.gserviceaccount.com \
             --set-env-vars GCP_PROJECT=${{ secrets.GCP_PROJECT }} \
             --timeout=60
       - run: |

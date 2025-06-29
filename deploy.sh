@@ -8,6 +8,7 @@ gcloud functions deploy sync-projects \
   --entry-point sync_projects \
   --trigger-http \
   --allow-unauthenticated \
+  --service-account sync-function-sa@productivity-sync-463008.iam.gserviceaccount.com \
   --set-env-vars GCP_PROJECT=productivity-sync-463008 \
   --timeout 60
 echo "Deployment complete!"
