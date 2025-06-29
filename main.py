@@ -3,7 +3,7 @@ from src.sync import run_full_sync
 
 
 @functions_framework.http
-def sync_projects(request):
+def sync_projects(_):
     """
     Cloud Function entry point. Triggers a full, one-way sync from Todoist to Notion.
     """
