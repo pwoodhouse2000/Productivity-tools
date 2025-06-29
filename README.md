@@ -70,21 +70,10 @@ In the Google Cloud Secret Manager for your project, create the following secret
 -   `notion-projects-database-id`: The ID of your "Master Projects" database.
 -   `notion-tasks-database-id`: The ID of your "Master Tasks" database.
 
-## Deployment (High-Level Overview)
-This function is designed to be deployed on Google Cloud Functions (2nd gen). The deployment process involves packaging the `main.py` script and its dependencies (`requirements.txt`) and configuring the Cloud Function runtime environment.
+## Deployment
+The included GitHub Actions workflow (`.github/workflows/deploy.yml`) will automatically deploy the function on a push to the `main` branch.
 
-### Key Deployment Steps:
-1.  **Package Code**: Ensure `main.py`, `requirements.txt`, and any other necessary files are included.
-2.  **Specify Runtime**: Python 3.11.
-3.  **Set Entry Point**: The function to be executed is `sync_projects` in `main.py`.
-4.  **Configure Trigger**: Typically HTTP-triggered.
-5.  **Set Environment Variables**: Crucially, `GCP_PROJECT` must be set to your Google Cloud Project ID.
-6.  **Assign Service Account**: The function needs a service account with permissions to access secrets from Secret Manager (role: "Secret Manager Secret Accessor").
-7.  **Region**: Choose the GCP region for deployment.
-
-### 1. Using `gcloud` CLI (Recommended)
-This method aligns with the automated deployment in `.github/workflows/deploy.yml`.
-
+To deploy manually, use the `gcloud` CLI from the root of the repository:
 ```bash
 gcloud functions deploy sync-projects \
     --gen2 \
@@ -93,9 +82,8 @@ gcloud functions deploy sync-projects \
     --source . \
     --entry-point sync_projects \
     --trigger-http \
-    --allow-unauthenticated \ # Or configure authentication as needed
-    --set-env-vars GCP_PROJECT=YOUR_GCP_PROJECT_ID \
-    --service-account YOUR_SERVICE_ACCOUNT_EMAIL # Optional: Specify if not using default
+    --allow-unauthenticated \
+    --set-env-vars GCP_PROJECT=YOUR_GCP_PROJECT_ID
 ```
 -   Replace `YOUR_REGION` with your desired GCP region (e.g., `us-central1`).
 -   Replace `YOUR_GCP_PROJECT_ID` with your actual Google Cloud Project ID.
